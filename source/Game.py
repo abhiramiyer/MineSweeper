@@ -59,117 +59,127 @@ class Board(object):
     """
     This is the core Board class as per the class diagram
     """
-    def __init__(self, rows, columns, mine_list):
+    def __init__(self, rows, columns, mineList):
         """
         This is the constructor.
         :param rows: Grid rows
         :param columns: Grid columns
-        :param mine_count: Mines to be placed
+        :param mineList: List of mines represented by row,column tuples
         :return: None
         """
         self.rows = rows
         self.columns = columns
-        self.mine_list = mine_list
-        self.total_mine_count = len(self.mine_list)
-        self.current_mine_count = self.total_mine_count
-        self.last_clicked_row = -1
-        self.last_clicked_column = -1
+        self.mineList = mineList
 
-        self.createboard()
+        self.gameStatus = GameStatus.InProgress
 
-    def createboard(self):
+        self.createBoard()
+
+    def createBoard(self):
         """
         Initialize the Board status and property with Closed and Empty resp.
         :return: None
         """
-        self.cell_status = [[CellStatus.Closed for col in range(self.columns)] for row in range(self.rows)]
-        self.cell_property = [[CellProperty.Empty for col in range(self.columns)] for row in range(self.rows)]
+        self.cellStatus = [[CellStatus.Closed for col in range(self.columns)] \
+            for row in range(self.rows)]
+        self.cellProperty = [[CellProperty.Empty for col in range(self.columns)] \
+            for row in range(self.rows)]
 
 
-        for minePos in self.mine_list:
-            self.cell_property[minePos[0]][minePos[1]] = CellProperty.Mine
+        for minePos in self.mineList:
+            self.cellProperty[minePos[0]][minePos[1]] = CellProperty.Mine
 
         # Update Adjacent Count in neighbouring cells of a cell which has mines
-        for minePos in self.mine_list:
+        for minePos in self.mineList:
             row = minePos[0]
             column = minePos[1]
             if (row - 1 >= 0) and (column - 1 >= 0):
-                if self.cell_property[row - 1][column - 1] != CellProperty.Mine:
-                    self.cell_property[row - 1][column - 1] += 1
+                if self.cellProperty[row - 1][column - 1] != CellProperty.Mine:
+                    self.cellProperty[row - 1][column - 1] += 1
             if row - 1 >= 0:
-                if self.cell_property[row - 1][column] != CellProperty.Mine:
-                    self.cell_property[row - 1][column] += 1
+                if self.cellProperty[row - 1][column] != CellProperty.Mine:
+                    self.cellProperty[row - 1][column] += 1
             if (row - 1 >= 0) and (column + 1 < self.columns):
-                if self.cell_property[row - 1][column + 1] != CellProperty.Mine:
-                    self.cell_property[row - 1][column + 1] += 1
+                if self.cellProperty[row - 1][column + 1] != CellProperty.Mine:
+                    self.cellProperty[row - 1][column + 1] += 1
             if column + 1 < self.columns:
-                if self.cell_property[row][column + 1] != CellProperty.Mine:
-                    self.cell_property[row][column + 1] += 1
+                if self.cellProperty[row][column + 1] != CellProperty.Mine:
+                    self.cellProperty[row][column + 1] += 1
             if (row + 1 < self.rows) and (column + 1 < self.columns):
-                if self.cell_property[row + 1][column + 1] != CellProperty.Mine:
-                    self.cell_property[row + 1][column + 1] += 1
+                if self.cellProperty[row + 1][column + 1] != CellProperty.Mine:
+                    self.cellProperty[row + 1][column + 1] += 1
             if row + 1 < self.rows:
-                if self.cell_property[row + 1][column] != CellProperty.Mine:
-                    self.cell_property[row + 1][column] += 1
+                if self.cellProperty[row + 1][column] != CellProperty.Mine:
+                    self.cellProperty[row + 1][column] += 1
             if (row + 1 < self.rows) and (column - 1 >= 0):
-                if self.cell_property[row + 1][column - 1] != CellProperty.Mine:
-                    self.cell_property[row + 1][column - 1] += 1
+                if self.cellProperty[row + 1][column - 1] != CellProperty.Mine:
+                    self.cellProperty[row + 1][column - 1] += 1
             if column - 1 >= 0:
-                if self.cell_property[row][column - 1] != CellProperty.Mine:
-                    self.cell_property[row][column - 1] += 1
+                if self.cellProperty[row][column - 1] != CellProperty.Mine:
+                    self.cellProperty[row][column - 1] += 1
         return
 
-    def opencell(self, row, column):
+    def openCell(self, row, column):
         """
         Open the input cell and return list of affected cells.
         :param row: Row of the cell
         :param column: Column of the cell
         :return: List of cells affected and to be updated
         """
-        assert (row >= 0 and row <= self.rows and column >= 0 and column <= self.columns)
+        assert row >= 0 and row <= self.rows and column >= 0 and column <= self.columns
 
         cellList = []
 
         # if cell status is already opened or marked as mine or suspected mine,
         # ignore
-        if (self.cell_status[row][column] == CellStatus.Opened) or \
-            (self.cell_status[row][column] == CellStatus.MarkedAsMine) or \
-            (self.cell_status[row][column] == CellStatus.MarkedAsSuspectedMine):
+        if (self.cellStatus[row][column] == CellStatus.Opened) or \
+            (self.cellStatus[row][column] == CellStatus.MarkedAsMine) or \
+            (self.cellStatus[row][column] == CellStatus.MarkedAsSuspectedMine):
             return cellList
 
         #set the Cell Status to Opened and add it to CellList to be returned
-        self.cell_status[row][column] = CellStatus.Opened
-        cellList.append([row, column])
+        self.cellStatus[row][column] = CellStatus.Opened
+        cellList.append((row, column))
 
-        # Cache the Clicked cell here
-        if len(cellList) == 1:
-            self.last_clicked_row = cellList[0][0]
-            self.last_clicked_column = cellList[0][1]
+        if self.cellProperty[row][column] == CellProperty.Mine:
+            self.gameStatus = GameStatus.Lost
+            return cellList
 
         # if a cell is empty we should open all the 8 neighbours of the
         # clicked cell if they are not already open or marked as mine.
         # This rule applies recursively to neighbour cells if they are also
         # empty.
-        if self.cell_property[row][column] == CellProperty.Empty:
+        if self.cellProperty[row][column] == CellProperty.Empty:
             if (row - 1 >= 0) and (column - 1 >= 0):
-                cellList.extend(self.opencell(row - 1, column - 1))
+                cellList.extend(self.openCell(row - 1, column - 1))
             if row - 1 >= 0:
-                cellList.extend(self.opencell(row - 1, column))
+                cellList.extend(self.openCell(row - 1, column))
             if (row - 1 >= 0) and (column + 1 < self.columns):
-                cellList.extend(self.opencell(row - 1, column + 1))
+                cellList.extend(self.openCell(row - 1, column + 1))
             if column + 1 < self.columns:
-                cellList.extend(self.opencell(row, column + 1))
+                cellList.extend(self.openCell(row, column + 1))
             if (row + 1 < self.rows) and (column + 1 < self.columns):
-                cellList.extend(self.opencell(row + 1, column + 1))
+                cellList.extend(self.openCell(row + 1, column + 1))
             if column - 1 >= 0:
-                cellList.extend(self.opencell(row, column - 1))
+                cellList.extend(self.openCell(row, column - 1))
             if row + 1 < self.rows:
-                cellList.extend(self.opencell(row + 1, column))
+                cellList.extend(self.openCell(row + 1, column))
             if (row + 1 < self.rows) and (column - 1 >= 0):
-                cellList.extend(self.opencell(row + 1, column - 1))
+                cellList.extend(self.openCell(row + 1, column - 1))
+
+        # Check if opening of the cells resulted in a win for the player
+        # if there are no cells that are closed or marked as suspected mine, then player wins
+        self.gameStatus = GameStatus.Won
+        for row in range(self.rows):
+            for col in range(self.columns):
+                if self.cellStatus[row][col] in (CellStatus.Closed, \
+                    CellStatus.MarkedAsSuspectedMine):
+                    self.gameStatus = GameStatus.InProgress
+                    break
+
         return cellList
 
-    def setcellstatus(self, row, column, status):
+    def setCellStatus(self, row, column, newStatus):
         """
         This function sets the cell's status as per input argument.
         :param row: Row of the cell
@@ -177,7 +187,7 @@ class Board(object):
         :param status: ::CellStatus enum value to be set
         :return: None
         """
-        assert (row >= 0 and row <= self.rows and column >= 0 and column <= self.columns)
+        assert row >= 0 and row <= self.rows and column >= 0 and column <= self.columns
 
         # Only state transitions noted below are allowed.  Illegal state
         # transtion requests are ignored
@@ -185,63 +195,54 @@ class Board(object):
         # MarkedAsSuspectedMine -> Closed
         # Closed -> [Opened, MarkedAsMine]
 
-        if self.cell_status[row][column] == CellStatus.MarkedAsMine:
-            if status == CellStatus.MarkedAsSuspectedMine:
-                self.cell_status[row][column] = CellStatus.MarkedAsSuspectedMine
-                self.current_mine_count = self.current_mine_count + 1
-                return
+        if self.cellStatus[row][column] == CellStatus.MarkedAsMine:
+            if newStatus == CellStatus.MarkedAsSuspectedMine:
+                self.cellStatus[row][column] = CellStatus.MarkedAsSuspectedMine
 
-        if self.cell_status[row][column] == CellStatus.MarkedAsSuspectedMine:
-            if status == CellStatus.Closed:
-                self.cell_status[row][column] = CellStatus.Closed
-                return
+        elif self.cellStatus[row][column] == CellStatus.MarkedAsSuspectedMine:
+            if newStatus == CellStatus.Closed:
+                self.cellStatus[row][column] = CellStatus.Closed
 
-        if self.cell_status[row][column] == CellStatus.Closed:
-            if status == CellStatus.MarkedAsMine:
-                self.cell_status[row][column] = CellStatus.MarkedAsMine
-                self.current_mine_count = self.current_mine_count - 1
-                return
-            elif status == CellStatus.Opened:
-                self.cell_status[row][column] = CellStatus.Opened
-                return
+        elif self.cellStatus[row][column] == CellStatus.Closed:
+            if newStatus == CellStatus.MarkedAsMine:
+                self.cellStatus[row][column] = CellStatus.MarkedAsMine
+            elif newStatus == CellStatus.Opened:
+                self.cellStatus[row][column] = CellStatus.Opened
 
-    def getcellstatus(self, row, column):
+
+        # Check if changing the cell status resulted in a win for the player
+        # if there are no cells that are closed or marked as suspected mine, then player wins
+        self.gameStatus = GameStatus.Won
+        for row in range(self.rows):
+            for col in range(self.columns):
+                if self.cellStatus[row][col] in (CellStatus.Closed, \
+                    CellStatus.MarkedAsSuspectedMine):
+                    self.gameStatus = GameStatus.InProgress
+                    break
+
+    def getCellStatus(self, row, column):
         """
         This function returns the cell's status.
         :param row: Row of the cell
         :param column: Column of the cell
         :return: ::CellStatus enum value
         """
-        assert (row >= 0 and row <= self.rows and column >= 0 and column <= self.columns)
-        return self.cell_status[row][column]
+        assert row >= 0 and row <= self.rows and column >= 0 and column <= self.columns
+        return self.cellStatus[row][column]
 
-    def getcellproperty(self, row, column):
+    def getCellProperty(self, row, column):
         """
         This function returns the cell's property.
         :param row: Row of the cell
         :param column: Column of the cell
         :return: ::CellProperty enum value
         """
-        assert (row >= 0 and row <= self.rows and column >= 0 and column <= self.columns)
-        return self.cell_property[row][column]
+        assert row >= 0 and row <= self.rows and column >= 0 and column <= self.columns
+        return self.cellProperty[row][column]
 
     def getGameStatus(self):
         """
         This function returns GameStatus enum value as per the current status.
         :return: GameWon, GameNotComplete or GameLost
         """
-        if (self.last_clicked_row == -1) and (self.last_clicked_column == -1):
-            return GameStatus.InProgress
-
-        if self.cell_property[self.last_clicked_row][self.last_clicked_column] == CellProperty.Mine:
-            return GameStatus.Lost
-
-        #print 'Remaining mine count:', self.current_mine_count
-        for row in range(self.rows):
-            for col in range(self.columns):
-                if self.cell_property[row][col] == CellProperty.Mine:
-                    continue
-                if self.cell_status[row][col] == CellStatus.Closed:
-                    return GameStatus.InProgress
-
-        return GameStatus.Won
+        return self.gameStatus
